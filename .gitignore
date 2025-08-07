@@ -1,0 +1,57 @@
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.sublime-*
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+*.love
+build/
+dist/
+release/
+
+# Lua compiled files
+*.luac
+
+# Project specific
+
+# Node modules (if using any Node.js tools)
+node_modules/
+
+# Package manager files
+package-lock.json
+yarn.lock
+
+# macOS
+*.dmg
+
+# Windows
+*.exe
+*.msi
+
+# Linux
+*.AppImage
+*.deb
+*.rpm
