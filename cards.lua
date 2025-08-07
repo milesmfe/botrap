@@ -216,19 +216,14 @@ function cards.draw_card(card)
         love.graphics.draw(cards.get_card_image(card), -4, -4, 0, 1.02, 1.02)
     end
     
-    -- Gold border for protected cards
-    if is_gold_protected then
-        love.graphics.setColor(1, 0.8, 0.2, 0.9) -- Gold color
-        love.graphics.setLineWidth(4)
-        love.graphics.rectangle("line", -2, -2, cards.ASSET_WIDTH + 4, cards.ASSET_HEIGHT + 4)
-    end
-    
-    -- Set card tint (dim if violating)
+    -- Set card tint (gold if protected, dim if violating)
     local tint_multiplier = is_violating and 0.4 or 1.0
+    local gold_tint = is_gold_protected and {r = 1.0, g = 0.9, b = 0.3} or {r = 1.0, g = 1.0, b = 1.0}
+    
     love.graphics.setColor(
-        card.tint.r * tint_multiplier, 
-        card.tint.g * tint_multiplier, 
-        card.tint.b * tint_multiplier, 
+        card.tint.r * tint_multiplier * gold_tint.r, 
+        card.tint.g * tint_multiplier * gold_tint.g, 
+        card.tint.b * tint_multiplier * gold_tint.b, 
         card.tint.a
     )
     
