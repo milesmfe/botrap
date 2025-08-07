@@ -131,7 +131,7 @@ function game_state.check_win_condition()
     -- Win condition: opponent has violations but player doesn't
     if opponent_violations and not player_violations then
         game_state.winner = "player"
-        game_state.game_over_message = "You Win! Opponent's hand violates the rules!"
+        game_state.game_over_message = "You Win! Opponent violated rules!"
         game_state.win_detected = true
         game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
         
@@ -142,7 +142,7 @@ function game_state.check_win_condition()
         return true
     elseif player_violations and not opponent_violations then
         game_state.winner = "opponent"
-        game_state.game_over_message = "You Lose! Your hand violates the rules!"
+        game_state.game_over_message = "You Lose! Your hand violated rules!"
         game_state.win_detected = true
         game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
         
@@ -304,7 +304,7 @@ function game_state.achieve_botrap()
     if game_state.player_score >= 2 then
         game_state.end_game("player", "BOTRAP! You won the game!")
     else
-        game_state.game_over_message = "BOTRAP! Round won!"
+        game_state.game_over_message = "BOTRAP! You win this round!"
         game_state.scene = "game_over"
         
         -- Auto-continue after showing message

@@ -10,25 +10,25 @@ rules.current_hand = 1 -- Track current hand for gold rule expiration
 rules.rule_types = {
     suit = {
         name = "Disallow Suit",
-        description = "No cards of specified suit allowed",
+        description = "Hands cannot contain specified suit",
         icon = "S",
         color = {1, 0.3, 0.3}
     },
     rank = {
         name = "Disallow Rank", 
-        description = "No cards of specified rank allowed",
+        description = "Hands cannot contain specified rank",
         icon = "R",
         color = {0.3, 0.5, 1}
     },
     mix = {
         name = "Disallow Mix",
-        description = "No cards matching both suit and rank",
+        description = "Hands cannot contain both specified suits",
         icon = "M",
         color = {1, 0.3, 1}
     },
     gold = {
         name = "Gold Rule",
-        description = "Special advanced rule",
+        description = "Specified rank overrides all other rules",
         icon = "G",
         color = {1, 0.8, 0.2}
     }
@@ -117,18 +117,30 @@ function rules.get_rule_description(rule_type, value)
     end
     
     if rule_type == "suit" then
-        return "No " .. value .. " cards allowed"
+        if value == "hearts" then
+            return "Hearts not allowed"
+        elseif value == "diamonds" then
+            return "Diamonds not allowed"
+        elseif value == "clubs" then
+            return "Clubs not allowed"
+        elseif value == "spades" then
+            return "Spades not allowed"
+        else
+            return value:gsub("^%l", string.upper) .. " not allowed"
+        end
     elseif rule_type == "rank" then
-        return "No " .. value .. " cards allowed"
+        return value .. " cards not allowed"
     elseif rule_type == "mix" then
         -- For mix rules, value is an array of suits
         if type(value) == "table" and #value == 2 then
-            return "No hands with both " .. value[1] .. " and " .. value[2] .. " suits"
+            local suit1 = value[1]:gsub("^%l", string.upper)
+            local suit2 = value[2]:gsub("^%l", string.upper)
+            return "Cannot mix " .. suit1 .. " and " .. suit2
         else
             return "Invalid mix rule"
         end
     elseif rule_type == "gold" then
-        return "Gold rule: " .. value .. " overrides all rules"
+        return value .. " cards override all rules"
     end
     
     return rule_def.description
@@ -146,7 +158,7 @@ function rules.validate_hand(hand)
                     table.insert(violations, {
                         rule = rule,
                         card = card,
-                        description = "Card " .. card.rank .. " of " .. card.suit .. " violates: " .. rule.description
+                        description = card.rank .. " of " .. card.suit .. " violates rule"
                     })
                 end
             end
@@ -157,7 +169,7 @@ function rules.validate_hand(hand)
                     table.insert(violations, {
                         rule = rule,
                         card = card,
-                        description = "Card " .. card.rank .. " of " .. card.suit .. " violates: " .. rule.description
+                        description = card.rank .. " of " .. card.suit .. " violates rule"
                     })
                 end
             end
@@ -179,7 +191,7 @@ function rules.validate_hand(hand)
                     table.insert(violations, {
                         rule = rule,
                         card = nil, -- This violates the entire hand, not a specific card
-                        description = "Hand contains both " .. rule.value[1] .. " and " .. rule.value[2] .. " suits"
+                        description = "Hand mixes " .. rule.value[1] .. " and " .. rule.value[2]
                     })
                 end
             end
