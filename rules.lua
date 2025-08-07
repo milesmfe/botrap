@@ -243,4 +243,63 @@ function rules.get_random_rank_rule()
     return ranks[math.random(#ranks)]
 end
 
+-- Helper function to check if a hand has gold protection
+function rules.has_gold_protection(hand)
+    for _, rule in ipairs(rules.active_rules) do
+        if rule.type == "gold" then
+            for _, card in ipairs(hand) do
+                if card.rank == rule.value then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+-- Helper function to check if a hand would have violations without gold protection
+function rules.has_violations_without_gold(hand)
+    local violations = {}
+    
+    -- Check each active rule against the hand (excluding gold rules)
+    for _, rule in ipairs(rules.active_rules) do
+        if rule.type == "suit" then
+            -- Check if hand contains any cards of disallowed suit
+            for _, card in ipairs(hand) do
+                if card.suit == rule.value then
+                    table.insert(violations, {rule = rule, card = card})
+                end
+            end
+        elseif rule.type == "rank" then
+            -- Check if hand contains any cards of disallowed rank
+            for _, card in ipairs(hand) do
+                if card.rank == rule.value then
+                    table.insert(violations, {rule = rule, card = card})
+                end
+            end
+        elseif rule.type == "mix" then
+            -- Check if hand contains cards of both disallowed suits
+            if type(rule.value) == "table" and #rule.value == 2 then
+                local has_suit1 = false
+                local has_suit2 = false
+                
+                for _, card in ipairs(hand) do
+                    if card.suit == rule.value[1] then
+                        has_suit1 = true
+                    elseif card.suit == rule.value[2] then
+                        has_suit2 = true
+                    end
+                end
+                
+                if has_suit1 and has_suit2 then
+                    table.insert(violations, {rule = rule, card = nil})
+                end
+            end
+        end
+        -- Skip gold rules in this function
+    end
+    
+    return #violations > 0
+end
+
 return rules

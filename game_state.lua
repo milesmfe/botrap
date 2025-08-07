@@ -110,7 +110,7 @@ function game_state.check_win_condition()
         return false -- No rules to violate
     end
     
-    -- Check player hand for violations
+    -- Check player hand for violations (using current system which respects gold protection)
     local player_violations = false
     for _, card in ipairs(game_state.player_hand) do
         if cards.is_violating_rules(card, game_state.player_hand) then
@@ -119,7 +119,7 @@ function game_state.check_win_condition()
         end
     end
     
-    -- Check opponent hand for violations
+    -- Check opponent hand for violations (using current system which respects gold protection)
     local opponent_violations = false
     for _, card in ipairs(game_state.opponent_hand) do
         if cards.is_violating_rules(card, game_state.opponent_hand) then
@@ -128,7 +128,30 @@ function game_state.check_win_condition()
         end
     end
     
-    -- Win condition: opponent has violations but player doesn't
+    -- Check for violations WITHOUT gold protection
+    local player_violations_without_gold = rules.has_violations_without_gold(game_state.player_hand)
+    local opponent_violations_without_gold = rules.has_violations_without_gold(game_state.opponent_hand)
+    
+    -- Check gold protection status
+    local player_has_gold = rules.has_gold_protection(game_state.player_hand)
+    local opponent_has_gold = rules.has_gold_protection(game_state.opponent_hand)
+    
+    -- Special case: Both have violations without gold, but only opponent has gold protection
+    if player_violations_without_gold and opponent_violations_without_gold and 
+       opponent_has_gold and not player_has_gold then
+        game_state.winner = "opponent"
+        game_state.game_over_message = "You Lose! Opponent's gold protects them!"
+        game_state.win_detected = true
+        game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
+        
+        -- Show notification to player
+        local ui = require("ui")
+        ui.add_floating_text("Defeat! Gold protection saves opponent!", love.graphics.getWidth() / 2, 300, ui.colors.danger)
+        
+        return true
+    end
+    
+    -- Standard win conditions: opponent has violations but player doesn't
     if opponent_violations and not player_violations then
         game_state.winner = "player"
         game_state.game_over_message = "You Win! Opponent violated rules!"
@@ -149,6 +172,24 @@ function game_state.check_win_condition()
         -- Show notification to player
         local ui = require("ui")
         ui.add_floating_text("Defeat! Your hand violates rules!", love.graphics.getWidth() / 2, 300, ui.colors.danger)
+        
+        return true
+    end
+    
+    -- BOTRAP condition: player hand is valid, opponent hand is invalid
+    -- This uses the rules.validate_hand which handles gold protection properly
+    local player_valid, player_violations_list = rules.validate_hand(game_state.player_hand)
+    local opponent_valid, opponent_violations_list = rules.validate_hand(game_state.opponent_hand)
+    
+    if player_valid and not opponent_valid then
+        game_state.winner = "player"
+        game_state.game_over_message = "BOTRAP! You trapped your opponent!"
+        game_state.win_detected = true
+        game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
+        
+        -- Show notification to player
+        local ui = require("ui")
+        ui.add_floating_text("BOTRAP! You trapped your opponent!", love.graphics.getWidth() / 2, 300, ui.colors.success)
         
         return true
     end
@@ -283,17 +324,14 @@ function game_state.complete_hand()
         cards.add_bounce_effect(card)
     end
     
-    -- Check for Botrap (player hand valid, opponent hand invalid)
-    local player_valid, player_violations = rules.validate_hand(game_state.player_hand)
-    local opponent_valid, opponent_violations = rules.validate_hand(game_state.opponent_hand)
-    
-    if player_valid and not opponent_valid then
-        -- Botrap achieved! Player wins
-        game_state.end_game("player", "BOTRAP! You trapped your opponent!")
-    else
-        -- Continue the game - deal new hands
-        game_state.next_hand()
+    -- Check ALL win conditions first (including new gold protection logic)
+    if game_state.check_win_condition() then
+        -- Win condition detected, don't proceed to next hand
+        return true, "Win condition detected"
     end
+    
+    -- If no immediate win condition, continue the game - deal new hands
+    game_state.next_hand()
     
     return true, "Hand completed"
 end
