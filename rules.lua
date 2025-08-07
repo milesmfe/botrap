@@ -1,12 +1,8 @@
--- Rules Engine - Game rules and validation system
-
 local rules = {}
 
--- Active rules for current hand
 rules.active_rules = {}
-rules.current_hand = 1 -- Track current hand for gold rule expiration
+rules.current_hand = 1
 
--- Rule definitions with colorful icons
 rules.rule_types = {
     suit = {
         name = "Disallow Suit",
@@ -35,52 +31,42 @@ rules.rule_types = {
 }
 
 function rules.load()
-    -- Initialize rules system
     rules.active_rules = {}
     rules.current_hand = 1
-    print("Rules engine loaded")
 end
 
 function rules.reset()
     rules.active_rules = {}
     rules.current_hand = 1
-    print("Rules reset for new game")
 end
 
 function rules.reset_hand()
-    -- Keep rules between hands in same round, but track hand progression
     rules.current_hand = rules.current_hand + 1
     
-    -- Remove expired gold rules (they only last one hand)
     for i = #rules.active_rules, 1, -1 do
         local rule = rules.active_rules[i]
         if rule.type == "gold" and rule.applied_hand and rules.current_hand > rule.applied_hand + 1 then
             table.remove(rules.active_rules, i)
-            print("Gold rule expired after hand " .. rule.applied_hand)
         end
     end
 end
 
 function rules.apply_rule(rule_type, value)
-    -- Validate rule application
     if not rules.rule_types[rule_type] then
         return false, "Invalid rule type"
     end
     
-    -- Check if rule already exists
     for _, rule in ipairs(rules.active_rules) do
         local same_rule = false
         
         if rule.type == rule_type then
             if rule_type == "mix" then
-                -- For mix rules, compare arrays
                 if type(rule.value) == "table" and type(value) == "table" and
                    #rule.value == #value and #value == 2 then
                     same_rule = (rule.value[1] == value[1] and rule.value[2] == value[2]) or
                                (rule.value[1] == value[2] and rule.value[2] == value[1])
                 end
             else
-                -- For other rules, simple comparison
                 same_rule = (rule.value == value)
             end
         end
@@ -90,7 +76,6 @@ function rules.apply_rule(rule_type, value)
         end
     end
     
-    -- Apply the rule
     local new_rule = {
         type = rule_type,
         value = value,
@@ -99,14 +84,11 @@ function rules.apply_rule(rule_type, value)
         icon = rules.rule_types[rule_type].icon
     }
     
-    -- Track when gold rules are applied for expiration
     if rule_type == "gold" then
         new_rule.applied_hand = rules.current_hand
     end
     
     table.insert(rules.active_rules, new_rule)
-    
-    print("Applied rule: " .. new_rule.description)
     return true, new_rule.description
 end
 
@@ -149,10 +131,8 @@ end
 function rules.validate_hand(hand)
     local violations = {}
     
-    -- Check each active rule against the hand
     for _, rule in ipairs(rules.active_rules) do
         if rule.type == "suit" then
-            -- Check if hand contains any cards of disallowed suit
             for _, card in ipairs(hand) do
                 if card.suit == rule.value then
                     table.insert(violations, {
@@ -163,7 +143,6 @@ function rules.validate_hand(hand)
                 end
             end
         elseif rule.type == "rank" then
-            -- Check if hand contains any cards of disallowed rank
             for _, card in ipairs(hand) do
                 if card.rank == rule.value then
                     table.insert(violations, {
@@ -174,29 +153,23 @@ function rules.validate_hand(hand)
                 end
             end
         elseif rule.type == "mix" then
-            -- Check if hand contains cards of both disallowed suits
             if type(rule.value) == "table" and #rule.value == 2 then
-                local has_suit1 = false
-                local has_suit2 = false
+                local has_suit1, has_suit2 = false, false
                 
                 for _, card in ipairs(hand) do
-                    if card.suit == rule.value[1] then
-                        has_suit1 = true
-                    elseif card.suit == rule.value[2] then
-                        has_suit2 = true
-                    end
+                    if card.suit == rule.value[1] then has_suit1 = true
+                    elseif card.suit == rule.value[2] then has_suit2 = true end
                 end
                 
                 if has_suit1 and has_suit2 then
                     table.insert(violations, {
                         rule = rule,
-                        card = nil, -- This violates the entire hand, not a specific card
+                        card = nil,
                         description = "Hand mixes " .. rule.value[1] .. " and " .. rule.value[2]
                     })
                 end
             end
         elseif rule.type == "gold" then
-            -- Gold rule overrides other violations for hands containing the gold rank
             local has_gold_rank = false
             for _, card in ipairs(hand) do
                 if card.rank == rule.value then
@@ -206,7 +179,6 @@ function rules.validate_hand(hand)
             end
             
             if has_gold_rank then
-                -- Remove all previous violations - gold rule overrides
                 violations = {}
                 break
             end
@@ -232,18 +204,6 @@ function rules.get_available_ranks()
     return {"A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"}
 end
 
--- Helper function to get a random rule for testing
-function rules.get_random_suit_rule()
-    local suits = rules.get_available_suits()
-    return suits[math.random(#suits)]
-end
-
-function rules.get_random_rank_rule()
-    local ranks = rules.get_available_ranks()
-    return ranks[math.random(#ranks)]
-end
-
--- Helper function to check if a hand has gold protection
 function rules.has_gold_protection(hand)
     for _, rule in ipairs(rules.active_rules) do
         if rule.type == "gold" then
@@ -257,38 +217,29 @@ function rules.has_gold_protection(hand)
     return false
 end
 
--- Helper function to check if a hand would have violations without gold protection
 function rules.has_violations_without_gold(hand)
     local violations = {}
     
-    -- Check each active rule against the hand (excluding gold rules)
     for _, rule in ipairs(rules.active_rules) do
         if rule.type == "suit" then
-            -- Check if hand contains any cards of disallowed suit
             for _, card in ipairs(hand) do
                 if card.suit == rule.value then
                     table.insert(violations, {rule = rule, card = card})
                 end
             end
         elseif rule.type == "rank" then
-            -- Check if hand contains any cards of disallowed rank
             for _, card in ipairs(hand) do
                 if card.rank == rule.value then
                     table.insert(violations, {rule = rule, card = card})
                 end
             end
         elseif rule.type == "mix" then
-            -- Check if hand contains cards of both disallowed suits
             if type(rule.value) == "table" and #rule.value == 2 then
-                local has_suit1 = false
-                local has_suit2 = false
+                local has_suit1, has_suit2 = false, false
                 
                 for _, card in ipairs(hand) do
-                    if card.suit == rule.value[1] then
-                        has_suit1 = true
-                    elseif card.suit == rule.value[2] then
-                        has_suit2 = true
-                    end
+                    if card.suit == rule.value[1] then has_suit1 = true
+                    elseif card.suit == rule.value[2] then has_suit2 = true end
                 end
                 
                 if has_suit1 and has_suit2 then
@@ -296,7 +247,6 @@ function rules.has_violations_without_gold(hand)
                 end
             end
         end
-        -- Skip gold rules in this function
     end
     
     return #violations > 0

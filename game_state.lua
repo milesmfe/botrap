@@ -44,11 +44,9 @@ function game_state.load()
 end
 
 function game_state.update(dt)
-    -- Update card animations
     local cards = require("cards")
     local all_cards = {}
     
-    -- Collect all cards for animation updates
     for _, card in ipairs(game_state.player_hand) do
         table.insert(all_cards, card)
     end
@@ -58,7 +56,6 @@ function game_state.update(dt)
     
     cards.update_all(all_cards, dt)
     
-    -- Handle delayed win condition display
     if game_state.win_check_timer > 0 then
         game_state.win_check_timer = game_state.win_check_timer - dt
         if game_state.win_check_timer <= 0 then
@@ -101,100 +98,65 @@ function game_state.start_new_game()
 end
 
 function game_state.check_win_condition()
-    local cards = require("cards")
     local rules = require("rules")
     
-    -- Check if any active rules exist
-    local active_rules = rules.get_active_rules()
-    if #active_rules == 0 then
-        return false -- No rules to violate
+    if #rules.get_active_rules() == 0 then
+        return false
     end
     
-    -- Check player hand for violations (using current system which respects gold protection)
-    local player_violations = false
-    for _, card in ipairs(game_state.player_hand) do
-        if cards.is_violating_rules(card, game_state.player_hand) then
-            player_violations = true
-            break
-        end
-    end
-    
-    -- Check opponent hand for violations (using current system which respects gold protection)
-    local opponent_violations = false
-    for _, card in ipairs(game_state.opponent_hand) do
-        if cards.is_violating_rules(card, game_state.opponent_hand) then
-            opponent_violations = true
-            break
-        end
-    end
-    
-    -- Check for violations WITHOUT gold protection
-    local player_violations_without_gold = rules.has_violations_without_gold(game_state.player_hand)
-    local opponent_violations_without_gold = rules.has_violations_without_gold(game_state.opponent_hand)
-    
-    -- Check gold protection status
+    local player_violations = game_state.has_hand_violations(game_state.player_hand)
+    local opponent_violations = game_state.has_hand_violations(game_state.opponent_hand)
+    local player_violations_no_gold = rules.has_violations_without_gold(game_state.player_hand)
+    local opponent_violations_no_gold = rules.has_violations_without_gold(game_state.opponent_hand)
     local player_has_gold = rules.has_gold_protection(game_state.player_hand)
     local opponent_has_gold = rules.has_gold_protection(game_state.opponent_hand)
     
-    -- Special case: Both have violations without gold, but only opponent has gold protection
-    if player_violations_without_gold and opponent_violations_without_gold and 
+    -- Gold protection special case
+    if player_violations_no_gold and opponent_violations_no_gold and 
        opponent_has_gold and not player_has_gold then
-        game_state.winner = "opponent"
-        game_state.game_over_message = "You Lose! Opponent's gold protects them!"
-        game_state.win_detected = true
-        game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
-        
-        -- Show notification to player
-        local ui = require("ui")
-        ui.add_floating_text("Defeat! Gold protection saves opponent!", love.graphics.getWidth() / 2, 300, ui.colors.danger)
-        
-        return true
+        return game_state.end_with_win("opponent", "You Lose! Opponent's gold protects them!", "Defeat! Gold protection saves opponent!")
     end
     
-    -- Standard win conditions: opponent has violations but player doesn't
+    -- Standard violations
     if opponent_violations and not player_violations then
-        game_state.winner = "player"
-        game_state.game_over_message = "You Win! Opponent violated rules!"
-        game_state.win_detected = true
-        game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
-        
-        -- Show notification to player
-        local ui = require("ui")
-        ui.add_floating_text("Victory! Opponent violates rules!", love.graphics.getWidth() / 2, 300, ui.colors.success)
-        
-        return true
+        return game_state.end_with_win("player", "You Win! Opponent violated rules!", "Victory! Opponent violates rules!")
     elseif player_violations and not opponent_violations then
-        game_state.winner = "opponent"
-        game_state.game_over_message = "You Lose! Your hand violated rules!"
-        game_state.win_detected = true
-        game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
-        
-        -- Show notification to player
-        local ui = require("ui")
-        ui.add_floating_text("Defeat! Your hand violates rules!", love.graphics.getWidth() / 2, 300, ui.colors.danger)
-        
-        return true
+        return game_state.end_with_win("opponent", "You Lose! Your hand violated rules!", "Defeat! Your hand violates rules!")
     end
     
-    -- BOTRAP condition: player hand is valid, opponent hand is invalid
-    -- This uses the rules.validate_hand which handles gold protection properly
-    local player_valid, player_violations_list = rules.validate_hand(game_state.player_hand)
-    local opponent_valid, opponent_violations_list = rules.validate_hand(game_state.opponent_hand)
+    -- BOTRAP condition
+    local player_valid, _ = rules.validate_hand(game_state.player_hand)
+    local opponent_valid, _ = rules.validate_hand(game_state.opponent_hand)
     
     if player_valid and not opponent_valid then
-        game_state.winner = "player"
-        game_state.game_over_message = "BOTRAP! You trapped your opponent!"
-        game_state.win_detected = true
-        game_state.win_check_timer = 2.0 -- 2 second delay before showing win screen
-        
-        -- Show notification to player
-        local ui = require("ui")
-        ui.add_floating_text("BOTRAP! You trapped your opponent!", love.graphics.getWidth() / 2, 300, ui.colors.success)
-        
-        return true
+        return game_state.end_with_win("player", "BOTRAP! You trapped your opponent!", "BOTRAP! You trapped your opponent!")
     end
     
     return false
+end
+
+function game_state.has_hand_violations(hand)
+    local cards = require("cards")
+    for _, card in ipairs(hand) do
+        if cards.is_violating_rules(card, hand) then
+            return true
+        end
+    end
+    return false
+end
+
+function game_state.end_with_win(winner, message, notification)
+    local ui = require("ui")
+    
+    game_state.winner = winner
+    game_state.game_over_message = message
+    game_state.win_detected = true
+    game_state.win_check_timer = 2.0
+    
+    local color = winner == "player" and ui.colors.success or ui.colors.danger
+    ui.add_floating_text(notification, love.graphics.getWidth() / 2, 300, color)
+    
+    return true
 end
 
 function game_state.start_new_hand()
