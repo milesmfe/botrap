@@ -66,6 +66,41 @@ function deck.can_deal_more(hand_size)
     return #deck.player_deck >= hand_size and #deck.opponent_deck >= hand_size
 end
 
+-- Upgrade support functions
+function deck.add_cards_to_player_deck(cards_to_add)
+    local cards = require("cards")
+    for _, card_def in ipairs(cards_to_add) do
+        local suit, rank = card_def[1], card_def[2]
+        table.insert(deck.player_deck, cards.create_card(suit, rank))
+    end
+end
+
+function deck.remove_rank_from_player_deck(rank)
+    for i = #deck.player_deck, 1, -1 do
+        if deck.player_deck[i].rank == rank then
+            table.remove(deck.player_deck, i)
+        end
+    end
+end
+
+function deck.remove_ranks_from_opponent_deck(ranks)
+    for i = #deck.opponent_deck, 1, -1 do
+        for _, rank in ipairs(ranks) do
+            if deck.opponent_deck[i].rank == rank then
+                table.remove(deck.opponent_deck, i)
+                break
+            end
+        end
+    end
+end
+
+function deck.get_deck_counts()
+    return {
+        player = #deck.player_deck,
+        opponent = #deck.opponent_deck
+    }
+end
+
 function deck.set_player_deck_position(x, y)
     deck.player_deck_position.x = x
     deck.player_deck_position.y = y
@@ -144,6 +179,37 @@ end
 
 function deck.get_opponent_deck_count()
     return #deck.opponent_deck
+end
+
+-- Deck modification functions for upgrades
+function deck.add_card_to_player_deck(suit, rank)
+    local cards = require("cards")
+    local new_card = cards.create_card(suit, rank)
+    table.insert(deck.player_deck, new_card)
+    deck.shuffle_player_deck()
+end
+
+function deck.remove_cards_from_player_deck(rank)
+    for i = #deck.player_deck, 1, -1 do
+        if deck.player_deck[i].rank == rank then
+            table.remove(deck.player_deck, i)
+        end
+    end
+end
+
+function deck.add_card_to_opponent_deck(suit, rank)
+    local cards = require("cards")
+    local new_card = cards.create_card(suit, rank)
+    table.insert(deck.opponent_deck, new_card)
+    deck.shuffle_opponent_deck()
+end
+
+function deck.remove_cards_from_opponent_deck(rank)
+    for i = #deck.opponent_deck, 1, -1 do
+        if deck.opponent_deck[i].rank == rank then
+            table.remove(deck.opponent_deck, i)
+        end
+    end
 end
 
 return deck

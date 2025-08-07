@@ -40,6 +40,12 @@ function rules.reset()
     rules.current_hand = 1
 end
 
+function rules.reset_round()
+    -- Reset all rules at the start of a new round
+    rules.active_rules = {}
+    rules.current_hand = 1
+end
+
 function rules.reset_hand()
     rules.current_hand = rules.current_hand + 1
     
@@ -250,6 +256,17 @@ function rules.has_violations_without_gold(hand)
     end
     
     return #violations > 0
+end
+
+-- Apply opponent auto-gold ability
+function rules.apply_opponent_auto_gold(opponent_hand)
+    -- Find a random rank in the opponent's hand to protect
+    if #opponent_hand > 0 then
+        local random_card = opponent_hand[math.random(#opponent_hand)]
+        local success, message = rules.apply_rule("gold", random_card.rank)
+        return success, message
+    end
+    return false, "No cards to protect"
 end
 
 return rules

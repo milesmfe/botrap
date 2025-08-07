@@ -106,9 +106,23 @@ function ui.create_menu_buttons()
             bounce = 0
         },
         {
-            text = "EXIT",
+            text = "VIEW STATS",
             x = start_x,
             y = start_y + 2 * (button_height + button_spacing),
+            width = button_width,
+            height = button_height,
+            color = ui.colors.purple,
+            action = function() 
+                ui.scene = "stats"
+            end,
+            scale = 1,
+            target_scale = 1,
+            bounce = 0
+        },
+        {
+            text = "EXIT",
+            x = start_x,
+            y = start_y + 3 * (button_height + button_spacing),
             width = button_width,
             height = button_height,
             color = ui.colors.danger,
@@ -205,7 +219,13 @@ end
 
 function ui.update(dt)
     local game_state = require("game_state")
+    local old_scene = ui.scene
     ui.scene = game_state.get_scene()
+    
+    -- Initialize upgrade buttons when entering upgrade scene
+    if old_scene ~= "upgrade" and ui.scene == "upgrade" then
+        ui.upgrade_buttons = {}
+    end
     
     -- Update button animations
     ui.update_button_animations(dt)
@@ -235,9 +255,16 @@ function ui.update_button_animations(dt)
         buttons = ui.menu_buttons
     elseif ui.scene == "playing" then
         buttons = ui.rule_buttons
+    elseif ui.scene == "upgrade" then
+        buttons = ui.upgrade_buttons or {}
     end
     
     for _, button in ipairs(buttons) do
+        -- Initialize animation properties if missing
+        if not button.scale then button.scale = 1.0 end
+        if not button.target_scale then button.target_scale = 1.0 end
+        if not button.bounce then button.bounce = 0 end
+        
         -- Scale animation
         local scale_diff = button.target_scale - button.scale
         button.scale = button.scale + scale_diff * dt * 8
@@ -378,14 +405,22 @@ function ui.draw()
         ui.draw_menu()
     elseif ui.scene == "playing" then
         ui.draw_game()
+    elseif ui.scene == "upgrade" then
+        ui.draw_upgrade_selection()
+    elseif ui.scene == "run_complete" then
+        ui.draw_run_complete()
+    elseif ui.scene == "stats" then
+        ui.draw_stats()
     elseif ui.scene == "game_over" then
-        ui.draw_game()
         ui.draw_game_over()
     end
     
     -- Draw particles and effects on top
     ui.draw_particles()
     ui.draw_floating_texts()
+    
+    -- Draw transition overlay if transitioning
+    ui.draw_transition_overlay()
     
     -- Draw tooltip last (on top of everything)
     ui.draw_tooltip()
@@ -625,45 +660,84 @@ end
 
 function ui.draw_game_over()
     local game_state = require("game_state")
+    local stats = require("stats")
     local screen_width = love.graphics.getWidth()
     local screen_height = love.graphics.getHeight()
     
-    -- Dim background
-    love.graphics.setColor(0, 0, 0, 0.7)
+    -- Clear background - no dimming, this is a full screen
+    love.graphics.setColor(ui.colors.background)
     love.graphics.rectangle("fill", 0, 0, screen_width, screen_height)
     
-    -- Game over panel
-    local panel_width = 500
-    local panel_height = 300
-    local panel_x = (screen_width - panel_width) / 2
-    local panel_y = (screen_height - panel_height) / 2
+    -- Title based on outcome
+    love.graphics.setFont(ui.fonts.huge)
+    local title_color = game_state.get_winner() == "player" and ui.colors.success or ui.colors.danger
+    love.graphics.setColor(title_color)
     
-    -- Panel background
-    love.graphics.setColor(ui.colors.dark)
-    love.graphics.rectangle("fill", panel_x, panel_y, panel_width, panel_height, 20)
-    
-    -- Panel border with glow
-    love.graphics.setColor(ui.colors.accent)
-    love.graphics.setLineWidth(3)
-    love.graphics.rectangle("line", panel_x, panel_y, panel_width, panel_height, 20)
+    local title = game_state.get_winner() == "player" and "VICTORY!" or "DEFEAT"
+    local title_width = ui.fonts.huge:getWidth(title)
+    love.graphics.print(title, (screen_width - title_width) / 2, 80)
     
     -- Game over message
     love.graphics.setFont(ui.fonts.large)
     love.graphics.setColor(ui.colors.white)
     local message = game_state.get_game_over_message()
     local message_width = ui.fonts.large:getWidth(message)
-    love.graphics.print(message, panel_x + (panel_width - message_width) / 2, panel_y + 50)
+    love.graphics.print(message, (screen_width - message_width) / 2, 150)
+    
+    -- Current run stats
+    local last_run = stats.get_last_run_stats()
+    love.graphics.setFont(ui.fonts.medium)
+    love.graphics.setColor(ui.colors.accent)
+    
+    local stats_y = 220
+    local line_height = 30
+    
+    love.graphics.print("This Run:", 100, stats_y)
+    love.graphics.setColor(ui.colors.white)
+    love.graphics.print("Round Reached: " .. game_state.get_round(), 120, stats_y + line_height)
+    love.graphics.print("Hands Played: " .. last_run.hands_played, 120, stats_y + line_height * 2)
+    love.graphics.print("Rounds Won: " .. last_run.rounds_won, 120, stats_y + line_height * 3)
+    
+    -- Opponents faced in this run
+    if #last_run.opponents_faced > 0 then
+        love.graphics.setColor(ui.colors.accent)
+        love.graphics.print("Opponents Defeated:", 100, stats_y + line_height * 5)
+        love.graphics.setColor(ui.colors.white)
+        for i, opponent_name in ipairs(last_run.opponents_faced) do
+            love.graphics.print("• " .. opponent_name, 120, stats_y + line_height * (5 + i))
+        end
+    end
+    
+    -- Upgrades used in this run
+    local upgrades_start_y = stats_y + line_height * (6 + #last_run.opponents_faced)
+    if #last_run.upgrades_chosen > 0 then
+        love.graphics.setColor(ui.colors.accent)
+        love.graphics.print("Upgrades Used:", 100, upgrades_start_y)
+        love.graphics.setColor(ui.colors.white)
+        for i, upgrade_name in ipairs(last_run.upgrades_chosen) do
+            love.graphics.print("• " .. upgrade_name, 120, upgrades_start_y + line_height * i)
+        end
+    end
+    
+    -- Overall statistics
+    local overall_stats = stats.get_stats()
+    love.graphics.setColor(ui.colors.success)
+    local overall_y = screen_height - 180
+    love.graphics.print("Overall Statistics:", screen_width - 400, overall_y)
+    love.graphics.setColor(ui.colors.white)
+    love.graphics.print("Runs Completed: " .. overall_stats.runs_completed, screen_width - 380, overall_y + line_height)
+    love.graphics.print("Best Run: " .. overall_stats.best_run_length .. " rounds", screen_width - 380, overall_y + line_height * 2)
     
     -- Buttons
     local button_width = 150
     local button_height = 60
-    local button_spacing = 20
+    local button_spacing = 30
     local buttons_total_width = 2 * button_width + button_spacing
-    local buttons_start_x = panel_x + (panel_width - buttons_total_width) / 2
-    local buttons_y = panel_y + 180
+    local buttons_start_x = (screen_width - buttons_total_width) / 2
+    local buttons_y = screen_height - 80
     
     local play_again_button = {
-        text = "PLAY AGAIN",
+        text = "NEW RUN",
         x = buttons_start_x,
         y = buttons_y,
         width = button_width,
@@ -674,7 +748,7 @@ function ui.draw_game_over()
     }
     
     local menu_button = {
-        text = "MENU",
+        text = "MAIN MENU",
         x = buttons_start_x + button_width + button_spacing,
         y = buttons_y,
         width = button_width,
@@ -703,6 +777,38 @@ function ui.draw_floating_texts()
     for _, text in ipairs(ui.floating_texts) do
         love.graphics.setColor(text.color[1], text.color[2], text.color[3], text.alpha)
         love.graphics.print(text.text, text.x, text.y)
+    end
+end
+
+function ui.draw_transition_overlay()
+    local game_state = require("game_state")
+    
+    -- Only show overlay if we're transitioning and win was detected
+    if game_state.get_scene_transition_timer() > 0 and game_state.get_win_detected() then
+        local screen_width = love.graphics.getWidth()
+        local screen_height = love.graphics.getHeight()
+        
+        -- Subtle overlay
+        love.graphics.setColor(0, 0, 0, 0.3)
+        love.graphics.rectangle("fill", 0, 0, screen_width, screen_height)
+        
+        -- Transition message
+        love.graphics.setFont(ui.fonts.medium)
+        love.graphics.setColor(ui.colors.white)
+        
+        local transition_text = ""
+        if game_state.get_pending_scene() == "upgrade" then
+            transition_text = "Round Complete! Preparing upgrades..."
+        elseif game_state.get_pending_scene() == "game_over" then
+            transition_text = "Run ended..."
+        elseif game_state.get_pending_scene() == "run_complete" then
+            transition_text = "Run complete! Calculating final results..."
+        end
+        
+        if transition_text ~= "" then
+            local text_width = ui.fonts.medium:getWidth(transition_text)
+            love.graphics.print(transition_text, (screen_width - text_width) / 2, screen_height / 2 + 50)
+        end
     end
 end
 
@@ -769,11 +875,40 @@ function ui.mousepressed(x, y, button)
                     if i == 1 then -- Play again
                         game_state.start_new_game()
                     else -- Menu
-                        game_state.set_scene("menu")
+                        game_state.return_to_menu()
                     end
                     return
                 end
             end
+        end
+    elseif ui.scene == "upgrade" then
+        if ui.upgrade_buttons then
+            for _, btn in ipairs(ui.upgrade_buttons) do
+                if ui.point_in_button(x, y, btn) then
+                    btn.bounce = 1.0
+                    
+                    -- Add particle burst effect
+                    ui.add_particle_burst(btn.x + btn.width/2, btn.y + btn.height/2, ui.colors.success)
+                    
+                    local success, message = game_state.choose_upgrade(btn.upgrade_index)
+                    if success then
+                        -- Add floating text feedback
+                        ui.add_floating_text("Upgrade Applied!", love.graphics.getWidth() / 2, 200, ui.colors.success)
+                        game_state.continue_after_upgrade()
+                    end
+                    return
+                end
+            end
+        end
+    elseif ui.scene == "run_complete" then
+        if ui.return_button and ui.point_in_button(x, y, ui.return_button) then
+            game_state.return_to_menu()
+            return
+        end
+    elseif ui.scene == "stats" then
+        if ui.back_button and ui.point_in_button(x, y, ui.back_button) then
+            ui.scene = "menu"
+            return
         end
     end
 end
@@ -983,6 +1118,245 @@ function ui.draw_tooltip()
         love.graphics.setFont(font)
         love.graphics.print(ui.tooltip_text, x + padding, y + padding)
     end
+end
+
+-- New scene drawing functions
+function ui.draw_upgrade_selection()
+    local screen_width = love.graphics.getWidth()
+    local screen_height = love.graphics.getHeight()
+    local game_state = require("game_state")
+    
+    -- Title
+    love.graphics.setFont(ui.fonts.large)
+    love.graphics.setColor(ui.colors.accent)
+    local title = "Choose Your Upgrade!"
+    local title_width = ui.fonts.large:getWidth(title)
+    love.graphics.print(title, (screen_width - title_width) / 2, 100)
+    
+    -- Round info
+    love.graphics.setFont(ui.fonts.medium)
+    love.graphics.setColor(ui.colors.white)
+    local round_text = "Round " .. game_state.get_round() .. " Complete!"
+    local round_width = ui.fonts.medium:getWidth(round_text)
+    love.graphics.print(round_text, (screen_width - round_width) / 2, 150)
+    
+    -- Upgrade buttons
+    local available_upgrades = game_state.get_available_upgrades()
+    local button_width = 300
+    local button_height = 120
+    local button_spacing = 50
+    local total_width = (#available_upgrades * button_width) + ((#available_upgrades - 1) * button_spacing)
+    local start_x = (screen_width - total_width) / 2
+    local start_y = 300
+    
+    for i, upgrade in ipairs(available_upgrades) do
+        local button_x = start_x + (i - 1) * (button_width + button_spacing)
+        local button_y = start_y
+        
+        -- Store button bounds for click detection and animations
+        if not ui.upgrade_buttons then ui.upgrade_buttons = {} end
+        if not ui.upgrade_buttons[i] then
+            ui.upgrade_buttons[i] = {
+                x = button_x, y = button_y,
+                width = button_width, height = button_height,
+                upgrade_index = i,
+                scale = 1.0,
+                target_scale = 1.0,
+                bounce = 0
+            }
+        else
+            -- Update position in case of screen resize
+            ui.upgrade_buttons[i].x = button_x
+            ui.upgrade_buttons[i].y = button_y
+        end
+        
+        local button = ui.upgrade_buttons[i]
+        
+        -- Apply scaling animation
+        love.graphics.push()
+        local center_x = button_x + button_width / 2
+        local center_y = button_y + button_height / 2
+        love.graphics.translate(center_x, center_y)
+        love.graphics.scale(button.scale, button.scale)
+        love.graphics.translate(-center_x, -center_y)
+        
+        -- Apply bounce effect
+        if button.bounce > 0 then
+            local bounce_offset = math.sin(button.bounce * math.pi * 4) * 5
+            love.graphics.translate(0, bounce_offset)
+        end
+        
+        -- Rarity color
+        local rarity_color = ui.colors.white
+        if upgrade.rarity == "rare" then
+            rarity_color = ui.colors.primary
+        elseif upgrade.rarity == "epic" then
+            rarity_color = ui.colors.secondary
+        end
+        
+        -- Button background with glow effect for hover
+        local alpha = button.scale > 1.05 and 0.3 or 0.2
+        love.graphics.setColor(rarity_color[1], rarity_color[2], rarity_color[3], alpha)
+        love.graphics.rectangle("fill", button_x, button_y, button_width, button_height, 10)
+        
+        -- Button border
+        love.graphics.setColor(rarity_color)
+        love.graphics.setLineWidth(3)
+        love.graphics.rectangle("line", button_x, button_y, button_width, button_height, 10)
+        
+        -- Upgrade name
+        love.graphics.setFont(ui.fonts.medium)
+        love.graphics.setColor(rarity_color)
+        local name_width = ui.fonts.medium:getWidth(upgrade.name)
+        love.graphics.print(upgrade.name, button_x + (button_width - name_width) / 2, button_y + 15)
+        
+        -- Upgrade description
+        love.graphics.setFont(ui.fonts.small)
+        love.graphics.setColor(ui.colors.white)
+        love.graphics.printf(upgrade.description, button_x + 10, button_y + 50, button_width - 20, "center")
+        
+        love.graphics.pop()
+    end
+end
+
+function ui.draw_run_complete()
+    local screen_width = love.graphics.getWidth()
+    local screen_height = love.graphics.getHeight()
+    local game_state = require("game_state")
+    local stats = require("stats")
+    
+    -- Title
+    love.graphics.setFont(ui.fonts.huge)
+    love.graphics.setColor(ui.colors.success)
+    local title = "RUN COMPLETE!"
+    local title_width = ui.fonts.huge:getWidth(title)
+    love.graphics.print(title, (screen_width - title_width) / 2, 80)
+    
+    -- Victory message
+    love.graphics.setFont(ui.fonts.large)
+    love.graphics.setColor(ui.colors.accent)
+    local victory_text = "You defeated all 5 opponents!"
+    local victory_width = ui.fonts.large:getWidth(victory_text)
+    love.graphics.print(victory_text, (screen_width - victory_width) / 2, 150)
+    
+    -- Run stats
+    local last_run = stats.get_last_run_stats()
+    love.graphics.setFont(ui.fonts.medium)
+    love.graphics.setColor(ui.colors.white)
+    
+    local stats_y = 220
+    local line_height = 30
+    
+    love.graphics.print("Rounds Won: " .. last_run.rounds_won, 100, stats_y)
+    love.graphics.print("Hands Played: " .. last_run.hands_played, 100, stats_y + line_height)
+    
+    -- Opponents faced
+    love.graphics.print("Opponents Defeated:", 100, stats_y + line_height * 3)
+    for i, opponent_name in ipairs(last_run.opponents_faced) do
+        love.graphics.print("• " .. opponent_name, 120, stats_y + line_height * (3 + i))
+    end
+    
+    -- Upgrades used
+    local upgrades_start_y = stats_y + line_height * (4 + #last_run.opponents_faced)
+    love.graphics.print("Upgrades Used:", 100, upgrades_start_y)
+    for i, upgrade_name in ipairs(last_run.upgrades_chosen) do
+        love.graphics.print("• " .. upgrade_name, 120, upgrades_start_y + line_height * i)
+    end
+    
+    -- Return to menu button
+    local button_width = 200
+    local button_height = 60
+    local button_x = (screen_width - button_width) / 2
+    local button_y = screen_height - 120
+    
+    love.graphics.setColor(ui.colors.primary[1], ui.colors.primary[2], ui.colors.primary[3], 0.8)
+    love.graphics.rectangle("fill", button_x, button_y, button_width, button_height, 10)
+    
+    love.graphics.setColor(ui.colors.primary)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", button_x, button_y, button_width, button_height, 10)
+    
+    love.graphics.setFont(ui.fonts.medium)
+    love.graphics.setColor(ui.colors.white)
+    local button_text = "RETURN TO MENU"
+    local text_width = ui.fonts.medium:getWidth(button_text)
+    love.graphics.print(button_text, button_x + (button_width - text_width) / 2, button_y + 20)
+    
+    -- Store button for click detection
+    ui.return_button = {x = button_x, y = button_y, width = button_width, height = button_height}
+end
+
+function ui.draw_stats()
+    local screen_width = love.graphics.getWidth()
+    local screen_height = love.graphics.getHeight()
+    local stats = require("stats")
+    local player_stats = stats.get_stats()
+    
+    -- Title
+    love.graphics.setFont(ui.fonts.large)
+    love.graphics.setColor(ui.colors.purple)
+    local title = "Player Statistics"
+    local title_width = ui.fonts.large:getWidth(title)
+    love.graphics.print(title, (screen_width - title_width) / 2, 80)
+    
+    -- Stats display
+    love.graphics.setFont(ui.fonts.medium)
+    love.graphics.setColor(ui.colors.white)
+    
+    local stats_x = 100
+    local stats_y = 150
+    local line_height = 40
+    local current_y = stats_y
+    
+    -- Overall stats
+    love.graphics.setColor(ui.colors.accent)
+    love.graphics.print("Overall Statistics:", stats_x, current_y)
+    current_y = current_y + line_height
+    
+    love.graphics.setColor(ui.colors.white)
+    love.graphics.print("Runs Completed: " .. player_stats.runs_completed, stats_x + 20, current_y)
+    current_y = current_y + line_height
+    love.graphics.print("Runs Attempted: " .. player_stats.runs_attempted, stats_x + 20, current_y)
+    current_y = current_y + line_height
+    love.graphics.print("Total Rounds Won: " .. player_stats.total_rounds_won, stats_x + 20, current_y)
+    current_y = current_y + line_height
+    love.graphics.print("Total Hands Played: " .. player_stats.total_hands_played, stats_x + 20, current_y)
+    current_y = current_y + line_height
+    love.graphics.print("Best Run Length: " .. player_stats.best_run_length, stats_x + 20, current_y)
+    current_y = current_y + line_height * 1.5
+    
+    -- Opponents defeated
+    love.graphics.setColor(ui.colors.success)
+    love.graphics.print("Opponents Defeated:", stats_x, current_y)
+    current_y = current_y + line_height
+    
+    love.graphics.setColor(ui.colors.white)
+    for opponent_name, count in pairs(player_stats.opponents_defeated) do
+        love.graphics.print("• " .. opponent_name .. ": " .. count, stats_x + 20, current_y)
+        current_y = current_y + line_height
+    end
+    
+    -- Back button
+    local button_width = 150
+    local button_height = 50
+    local button_x = 50
+    local button_y = screen_height - 80
+    
+    love.graphics.setColor(ui.colors.primary[1], ui.colors.primary[2], ui.colors.primary[3], 0.8)
+    love.graphics.rectangle("fill", button_x, button_y, button_width, button_height, 10)
+    
+    love.graphics.setColor(ui.colors.primary)
+    love.graphics.setLineWidth(2)
+    love.graphics.rectangle("line", button_x, button_y, button_width, button_height, 10)
+    
+    love.graphics.setFont(ui.fonts.medium)
+    love.graphics.setColor(ui.colors.white)
+    local button_text = "BACK"
+    local text_width = ui.fonts.medium:getWidth(button_text)
+    love.graphics.print(button_text, button_x + (button_width - text_width) / 2, button_y + 15)
+    
+    -- Store button for click detection
+    ui.back_button = {x = button_x, y = button_y, width = button_width, height = button_height}
 end
 
 return ui

@@ -2,42 +2,54 @@
 
 local game_state = {}
 
--- Game scenes
-game_state.scene = "menu" -- "menu", "playing", "game_over"
+-- Game scenes: "menu", "playing", "upgrade", "game_over", "run_complete", "stats"
+game_state.scene = "menu"
 
--- Game data
+-- Run/Round/Hand hierarchy
+game_state.run = 1
 game_state.round = 1
 game_state.hand = 1
-game_state.player_score = 0
-game_state.opponent_score = 0
 game_state.phase = "card_selection" -- "card_selection", "rule_selection", "hand_complete"
 
--- Card hands
+-- Current opponent data
+game_state.current_opponent = nil
+game_state.opponent_abilities = {}
+
+-- Player progression
+game_state.player_upgrades = {}
+game_state.defeated_opponents = {}
+game_state.available_upgrades = {} -- For upgrade selection screen
+
+-- Current hands
 game_state.player_hand = {}
 game_state.opponent_hand = {}
 game_state.selected_cards = {}
 
--- Game configuration
+-- Configuration
 game_state.config = {
     hand_size = 5,
-    max_rounds = 3
+    max_rounds_per_run = 5, -- Complete run after 5 rounds
+    upgrades_offered = 3    -- Number of upgrade choices offered
 }
 
--- Game over data
+-- Win/Loss tracking
 game_state.winner = nil
 game_state.game_over_message = ""
-game_state.win_check_timer = 0 -- Timer for delayed win overlay
-game_state.win_detected = false -- Flag for when win is detected but not yet shown
+game_state.win_detected = false
+game_state.scene_transition_timer = 0
+game_state.pending_scene = nil
 
 function game_state.load()
     -- Initialize card system
     local cards = require("cards")
     local deck = require("deck")
     local rules = require("rules")
+    local stats = require("stats")
     
     cards.load()
     deck.load()
     rules.load()
+    stats.load()
     
     -- Start at menu
     game_state.scene = "menu"
@@ -56,10 +68,12 @@ function game_state.update(dt)
     
     cards.update_all(all_cards, dt)
     
-    if game_state.win_check_timer > 0 then
-        game_state.win_check_timer = game_state.win_check_timer - dt
-        if game_state.win_check_timer <= 0 then
-            game_state.scene = "game_over"
+    -- Handle smooth scene transitions
+    if game_state.scene_transition_timer > 0 then
+        game_state.scene_transition_timer = game_state.scene_transition_timer - dt
+        if game_state.scene_transition_timer <= 0 and game_state.pending_scene then
+            game_state.scene = game_state.pending_scene
+            game_state.pending_scene = nil
         end
     end
 end
@@ -72,29 +86,130 @@ function game_state.set_scene(new_scene)
     game_state.scene = new_scene
 end
 
+function game_state.schedule_scene_transition(new_scene, delay)
+    delay = delay or 1.5 -- Default 1.5 second delay
+    game_state.pending_scene = new_scene
+    game_state.scene_transition_timer = delay
+end
+
 function game_state.start_new_game()
-    print("Starting new Botrap game!")
-    
     local deck = require("deck")
     local rules = require("rules")
+    local stats = require("stats")
     
-    -- Reset game state
+    game_state.run = 1
     game_state.round = 1
     game_state.hand = 1
-    game_state.player_score = 0
-    game_state.opponent_score = 0
+    game_state.current_opponent = nil
+    game_state.opponent_abilities = {}
+    game_state.player_upgrades = {}
+    game_state.defeated_opponents = {}
+    game_state.available_upgrades = {}
     game_state.winner = nil
     game_state.game_over_message = ""
-    game_state.win_check_timer = 0
     game_state.win_detected = false
+    game_state.scene_transition_timer = 0
+    game_state.pending_scene = nil
     
-    -- Reset card systems
     deck.reset()
     rules.reset()
+    stats.start_new_run()
     
-    -- Start first hand
-    game_state.start_new_hand()
+    game_state.start_new_round()
     game_state.scene = "playing"
+end
+
+function game_state.start_new_round()
+    local opponents = require("opponents")
+    local upgrades = require("upgrades")
+    local rules = require("rules")
+    
+    game_state.hand = 1
+    game_state.current_opponent = opponents.get_opponent_for_round(game_state.round)
+    game_state.win_detected = false  -- Reset win detection for new round
+    
+    -- Reset rules for new round - each opponent starts fresh
+    rules.reset_round()
+    
+    opponents.reset_opponent_effects(game_state)
+    opponents.apply_opponent_ability(game_state.current_opponent, game_state)
+    upgrades.apply_all_upgrades(game_state)
+    
+    game_state.start_new_hand()
+end
+
+function game_state.round_victory()
+    local stats = require("stats")
+    
+    -- Record stats
+    stats.record_round_victory(game_state.current_opponent.name)
+    
+    table.insert(game_state.defeated_opponents, game_state.current_opponent)
+    game_state.round = game_state.round + 1
+    
+    if game_state.round > game_state.config.max_rounds_per_run then
+        game_state.run_complete()
+    else
+        -- Offer upgrades before next round with smooth transition
+        game_state.prepare_upgrade_selection()
+        game_state.schedule_scene_transition("upgrade", 2.0)
+    end
+end
+
+function game_state.round_defeat()
+    local stats = require("stats")
+    
+    game_state.winner = "opponent"
+    game_state.game_over_message = "Run ended! " .. game_state.current_opponent.name .. " defeated you!"
+    
+    -- Complete run stats (not victorious)
+    stats.complete_run(false)
+    
+    game_state.schedule_scene_transition("game_over", 2.0)
+end
+
+function game_state.run_complete()
+    local stats = require("stats")
+    
+    game_state.winner = "player"
+    game_state.game_over_message = "Victory! You completed the full run!"
+    
+    -- Complete run stats (victorious)
+    stats.complete_run(true)
+    
+    game_state.schedule_scene_transition("run_complete", 2.0)
+end
+
+function game_state.continue_after_upgrade()
+    game_state.start_new_round()
+    game_state.scene = "playing"
+end
+
+function game_state.prepare_upgrade_selection()
+    local upgrades = require("upgrades")
+    game_state.available_upgrades = upgrades.get_random_upgrades(game_state.config.upgrades_offered, game_state.round)
+end
+
+function game_state.choose_upgrade(upgrade_index)
+    if upgrade_index < 1 or upgrade_index > #game_state.available_upgrades then
+        return false, "Invalid upgrade selection"
+    end
+    
+    local upgrades = require("upgrades")
+    local stats = require("stats")
+    local chosen_upgrade = game_state.available_upgrades[upgrade_index]
+    
+    -- Apply the upgrade
+    upgrades.apply_upgrade(chosen_upgrade, game_state)
+    
+    -- Record in player upgrades and stats
+    table.insert(game_state.player_upgrades, chosen_upgrade)
+    stats.record_upgrade_chosen(chosen_upgrade.name)
+    
+    -- Clear available upgrades
+    game_state.available_upgrades = {}
+    
+    return true, "Upgrade applied: " .. chosen_upgrade.name
 end
 
 function game_state.check_win_condition()
@@ -110,6 +225,11 @@ function game_state.check_win_condition()
     local opponent_violations_no_gold = rules.has_violations_without_gold(game_state.opponent_hand)
     local player_has_gold = rules.has_gold_protection(game_state.player_hand)
     local opponent_has_gold = rules.has_gold_protection(game_state.opponent_hand)
+    
+    -- Handle opponent rule immunity ability
+    if game_state.current_opponent and game_state.current_opponent.ability == "rule_immunity" and opponent_violations then
+        opponent_violations = false -- Opponent ignores one violation per hand
+    end
     
     -- Gold protection special case
     if player_violations_no_gold and opponent_violations_no_gold and 
@@ -148,36 +268,69 @@ end
 function game_state.end_with_win(winner, message, notification)
     local ui = require("ui")
     
-    game_state.winner = winner
-    game_state.game_over_message = message
-    game_state.win_detected = true
-    game_state.win_check_timer = 2.0
-    
+    -- Show floating text notification immediately
     local color = winner == "player" and ui.colors.success or ui.colors.danger
     ui.add_floating_text(notification, love.graphics.getWidth() / 2, 300, color)
+    
+    -- Set message for potential display
+    game_state.game_over_message = message
+    game_state.win_detected = true
+    
+    if winner == "player" then
+        -- Player wins hand, advance to next round or complete run
+        game_state.round_victory()
+    else
+        -- Opponent wins hand, end the run immediately
+        game_state.round_defeat()
+    end
     
     return true
 end
 
 function game_state.start_new_hand()
-    print("Starting hand " .. game_state.hand)
+    print("Starting hand " .. game_state.hand .. " of round " .. game_state.round)
     
     local deck = require("deck")
     local rules = require("rules")
+    local stats = require("stats")
+    
+    -- Record hand played
+    stats.record_hand_played()
     
     -- Reset hand state
     game_state.phase = "card_selection"
     game_state.selected_cards = {}
+    game_state.win_detected = false  -- Reset win detection for new hand
     rules.reset_hand()
     
     -- Deal new cards
-    game_state.player_hand = deck.deal_player_cards(game_state.config.hand_size)
-    game_state.opponent_hand = deck.deal_opponent_cards(game_state.config.hand_size)
+    local player_hand_size = game_state.config.hand_size
+    local opponent_hand_size = game_state.config.hand_size
+    
+    -- Apply opponent ability modifications
+    if game_state.current_opponent and game_state.current_opponent.ability == "extra_card" then
+        opponent_hand_size = opponent_hand_size + 1
+    end
+    
+    -- Check if we can deal more cards
+    if not deck.can_deal_more(player_hand_size + opponent_hand_size) then
+        game_state.round_defeat()
+        game_state.game_over_message = "No more cards to deal! " .. game_state.current_opponent.name .. " wins by deck exhaustion!"
+        return
+    end
+    
+    game_state.player_hand = deck.deal_player_cards(player_hand_size)
+    game_state.opponent_hand = deck.deal_opponent_cards(opponent_hand_size)
+    
+    -- Apply opponent auto-gold ability if they have it
+    if game_state.current_opponent and game_state.current_opponent.ability == "auto_gold" then
+        rules.apply_opponent_auto_gold(game_state.opponent_hand)
+    end
     
     -- Arrange cards on screen
     game_state.arrange_cards()
     
-    -- Check for win condition after dealing
+    -- Check for immediate win condition after dealing
     game_state.check_win_condition()
 end
 
@@ -298,46 +451,45 @@ function game_state.complete_hand()
     return true, "Hand completed"
 end
 
-function game_state.achieve_botrap()
-    game_state.player_score = game_state.player_score + 1
-    
-    if game_state.player_score >= 2 then
-        game_state.end_game("player", "BOTRAP! You won the game!")
-    else
-        game_state.game_over_message = "BOTRAP! You win this round!"
-        game_state.scene = "game_over"
-        
-        -- Auto-continue after showing message
-        love.timer.sleep(2)
-        game_state.next_round()
-    end
-end
-
 function game_state.next_hand()
     game_state.hand = game_state.hand + 1
-    
-    local deck = require("deck")
-    
-    if not deck.can_deal_more(game_state.config.hand_size) then
-        game_state.end_game("draw", "No more cards to deal")
-    else
-        game_state.start_new_hand()
-    end
-end
-
-function game_state.next_round()
-    game_state.round = game_state.round + 1
-    game_state.hand = 1
-    local deck = require("deck")
-    deck.reset()
     game_state.start_new_hand()
-    game_state.scene = "playing"
 end
 
-function game_state.end_game(winner, message)
-    game_state.winner = winner
-    game_state.game_over_message = message
-    game_state.scene = "game_over"
+function game_state.return_to_menu()
+    game_state.scene = "menu"
+    game_state.run = 1
+    game_state.round = 1
+    game_state.hand = 1
+    game_state.winner = nil
+    game_state.game_over_message = ""
+    game_state.scene_transition_timer = 0
+    game_state.pending_scene = nil
+    
+    -- Reset all game state
+    local deck = require("deck")
+    local rules = require("rules")
+    
+    game_state.current_opponent = nil
+    game_state.opponent_abilities = {}
+    game_state.player_upgrades = {}
+    game_state.defeated_opponents = {}
+    game_state.available_upgrades = {}
+    game_state.player_hand = {}
+    game_state.opponent_hand = {}
+    game_state.selected_cards = {}
+    
+    deck.reset()
+    rules.reset()
+end
+
+-- New getters for upgrade and stats systems
+function game_state.get_available_upgrades()
+    return game_state.available_upgrades
+end
+
+function game_state.get_config()
+    return game_state.config
 end
 
 -- Getters for UI
@@ -365,14 +517,6 @@ function game_state.get_win_detected()
     return game_state.win_detected
 end
 
-function game_state.get_player_score()
-    return game_state.player_score
-end
-
-function game_state.get_opponent_score()
-    return game_state.opponent_score
-end
-
 function game_state.get_phase()
     return game_state.phase
 end
@@ -383,6 +527,32 @@ end
 
 function game_state.get_game_over_message()
     return game_state.game_over_message
+end
+
+-- New getters for run/round system
+function game_state.get_run()
+    return game_state.run
+end
+
+function game_state.get_current_opponent()
+    return game_state.current_opponent
+end
+
+function game_state.get_player_upgrades()
+    return game_state.player_upgrades
+end
+
+function game_state.get_defeated_opponents()
+    return game_state.defeated_opponents
+end
+
+-- Getters for transition state
+function game_state.get_scene_transition_timer()
+    return game_state.scene_transition_timer
+end
+
+function game_state.get_pending_scene()
+    return game_state.pending_scene
 end
 
 return game_state
