@@ -62,6 +62,16 @@ function Card.draw(card, x, y, face_up, is_player_card, selected, scale)
         elseif card.type == "gold" then
             tint = {1, 1, 0.7, 1}    -- Yellow tint
         end
+    else
+        -- Apply highlighting to card backs based on type
+        if card.type == "trapped" then
+            tint = {1, 0.7, 0.7, 1}  -- Red tint for trapped cards
+        elseif card.type == "gold" then
+            tint = {1, 1, 0.7, 1}    -- Yellow tint for gold cards
+        elseif card.type == "wild" then
+            tint = {0.8, 0.8, 0.8, 1}  -- Gray tint for wild cards
+        end
+        -- Normal cards keep default tint {1, 1, 1, 1}
     end
     
     -- Selection highlight

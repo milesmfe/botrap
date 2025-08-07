@@ -36,9 +36,7 @@ release/
 *.luac
 
 # Project specific
-
-# Node modules (if using any Node.js tools)
-node_modules/
+assets/
 
 # Package manager files
 package-lock.json

@@ -17,6 +17,7 @@
 - Complete 13 rounds to win the run
 - Each round, try to achieve a hand with NO trapped cards while your opponent HAS trapped cards
 - When this condition is met, click "BOTRAP!" to win the round
+- Hands contain 5 cards each (some opponents may increase this to 6, 7, 8, or 9 cards)
 
 ### Gameplay Controls
 
@@ -33,15 +34,23 @@
 - **Gold** (1 card): Resets all trapped cards to normal AND makes that specific card type gold (only once per round)
 
 #### Action Buttons
-- **APPLY RULE**: Apply the selected trap rule to selected cards
-- **NEW HAND**: Return all cards to decks, reshuffle, and deal new hands
+- **APPLY RULE**: Apply the selected trap rule to selected cards (triggers reshuffle and new hand)
+- **NEW HAND**: Return all cards to decks, reshuffle, and deal new hands manually
 - **BOTRAP!**: Win the round (only available when you have no trapped cards and opponent has trapped cards)
+
+**Important**: After applying any trap rule, all cards automatically return to their decks, get reshuffled, and new hands are dealt with the accumulated trap rules in effect.
 
 ### Card Types (Visual Indicators)
 - **Normal Cards**: No tint
 - **Trapped Cards**: Red tint - these are dangerous!
 - **Gold Cards**: Yellow tint - these are safe and valuable
 - **Wild Cards**: Gray background with "WILD" text
+
+**Opponent Card Backs**: Even when face-down, opponent cards show hints about their type:
+- Normal cards: No highlighting on back
+- Trapped cards: Red-tinted back
+- Gold cards: Yellow-tinted back  
+- Wild cards: Gray-tinted back
 
 ### Round Progression
 1. Play hands until you can call "BOTRAP!"
@@ -56,9 +65,13 @@
 
 ### Strategy Tips
 - Trap rules accumulate throughout a round - plan carefully!
-- Use Gold strategically to clear dangerous trap situations
-- Consider future hands when applying trap rules
+- After each rule application, cards are automatically returned to decks and reshuffled
+- Use Gold strategically to clear dangerous trap situations and get a fresh hand
+- Consider future hands when applying trap rules - they persist for the entire round
 - Higher-level opponents have more upgrades, making them harder
+- Some opponents increase your hand size, giving you more cards to work with but also more potential traps
+- Watch opponent card back colors for strategic information about hidden cards
+- The "NEW HAND" button lets you reshuffle without applying a rule, but trap rules remain active
 
 ### Winning/Losing
 - **Win**: Complete all 13 rounds by defeating Bo Trap

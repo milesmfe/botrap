@@ -9,14 +9,16 @@ local opponent_definitions = {
         name = "Rookie Guard",
         level = 1,
         description = "A new guard learning the ropes",
-        rounds = {1, 2, 3}
+        rounds = {1, 2, 3},
+        increases_hand_size = false
     },
     {
         id = "street_dealer",
         name = "Street Dealer",
         level = 1,
         description = "A cunning card dealer from the streets",
-        rounds = {1, 2, 3}
+        rounds = {1, 2, 3},
+        increases_hand_size = true
     },
     
     -- Level 2 opponents (rounds 4-6)
@@ -25,14 +27,16 @@ local opponent_definitions = {
         name = "Veteran Guard",
         level = 2,
         description = "An experienced prison guard",
-        rounds = {4, 5, 6}
+        rounds = {4, 5, 6},
+        increases_hand_size = false
     },
     {
         id = "casino_boss",
         name = "Casino Boss",
         level = 2,
         description = "A seasoned casino owner",
-        rounds = {4, 5, 6}
+        rounds = {4, 5, 6},
+        increases_hand_size = true
     },
     
     -- Level 3 opponents (rounds 7-9)
@@ -41,14 +45,16 @@ local opponent_definitions = {
         name = "Warden's Assistant",
         level = 3,
         description = "The warden's right hand",
-        rounds = {7, 8, 9}
+        rounds = {7, 8, 9},
+        increases_hand_size = false
     },
     {
         id = "card_master",
         name = "Card Master",
         level = 3,
         description = "A master of card manipulation",
-        rounds = {7, 8, 9}
+        rounds = {7, 8, 9},
+        increases_hand_size = true
     },
     
     -- Level 4 opponents (rounds 10-12)
@@ -57,14 +63,16 @@ local opponent_definitions = {
         name = "Prison Warden",
         level = 4,
         description = "The formidable prison warden",
-        rounds = {10, 11, 12}
+        rounds = {10, 11, 12},
+        increases_hand_size = false
     },
     {
         id = "trap_specialist",
         name = "Trap Specialist",
         level = 4,
         description = "An expert in trap mechanics",
-        rounds = {10, 11, 12}
+        rounds = {10, 11, 12},
+        increases_hand_size = true
     },
     
     -- Level 5 opponent (round 13)
@@ -73,7 +81,8 @@ local opponent_definitions = {
         name = "Bo Trap",
         level = 5,
         description = "The legendary master of all traps",
-        rounds = {13}
+        rounds = {13},
+        increases_hand_size = false
     }
 }
 
@@ -155,7 +164,7 @@ function Opponents.drawOpponent(opponent, x, y, w, h)
     love.graphics.rectangle("line", x, y, w, h)
     
     -- Opponent portrait (placeholder colored rectangle)
-    local portrait_size = math.min(w * 0.4, h * 0.6)
+    local portrait_size = math.min(w * 0.4, h * 0.5)
     local portrait_x = x + (w - portrait_size) / 2
     local portrait_y = y + 10
     
@@ -182,6 +191,13 @@ function Opponents.drawOpponent(opponent, x, y, w, h)
     text_y = text_y + 25
     love.graphics.setColor(level_colors[opponent.level] or {0.5, 0.5, 0.5, 1})
     love.graphics.printf("Level " .. opponent.level, x + 5, text_y, w - 10, "center")
+    
+    -- Hand size increase indicator
+    if opponent.increases_hand_size then
+        text_y = text_y + 20
+        love.graphics.setColor(1, 0.8, 0.3, 1)
+        love.graphics.printf("+" .. opponent.level .. " Hand Size", x + 5, text_y, w - 10, "center")
+    end
     
     -- Description
     text_y = text_y + 25

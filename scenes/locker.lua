@@ -149,7 +149,10 @@ function Locker.applyUpgradeAndContinue()
     
     local chosen_upgrade = upgrade_choices[selected_upgrade]
     
-    -- Apply the upgrade
+    -- Return cards to deck BEFORE applying upgrade so upgrade affects full deck
+    returnCardsToDeck()
+    
+    -- Apply the upgrade to the full deck
     applyUpgrade(chosen_upgrade)
     
     -- Continue to next round or end game

@@ -10,6 +10,8 @@ Opponents operate on logical rule-based systems rather than artificial intellige
 
 The game is structured in a hierarchical format: runs contain rounds, rounds contain hands. Each run consists of 13 rounds with 4 different difficulty levels, culminating in a boss battle against "Bo Trap". Victory requires completing all rounds, while defeat ends the current run immediately.
 
+Each round contains multiple hands of 5 cards each, one hand for the player and one hand for the opponent, drawn from their respective decks. Some opponents possess the ability to increase the player's hand size by their level number, adding an extra strategic challenge to those encounters.
+
 ### Core Mechanics
 
 The trap system forms the foundation of Botrap's strategic depth. Players can apply four different trap rules to selected cards:
@@ -19,15 +21,17 @@ The trap system forms the foundation of Botrap's strategic depth. Players can ap
 - Trap Suit Match: Creates a trap based on the combination of two card suits
 - Trap Rank Match: Creates a trap based on the combination of two card ranks
 
-Trap rules accumulate throughout a round, meaning decisions made in early hands affect all subsequent hands in that round. This creates a complex strategic layer where players must balance immediate tactical needs with long-term round planning.
+Trap rules accumulate throughout a round, meaning decisions made in early hands affect all subsequent hands in that round. This creates a complex strategic layer where players must balance immediate tactical needs with long-term round planning. After each trap rule is applied, all cards are returned to their respective decks, the decks are reshuffled, and new hands are dealt with the accumulated trap rules taking effect.
 
-The Gold rule provides a unique strategic option, allowing players to designate one specific card per round as Gold. This not only protects that card but also resets all currently trapped cards back to normal, offering a powerful but limited defensive mechanism.
+The Gold rule provides a unique strategic option, allowing players to designate one specific card per round as Gold. This not only protects that card but also resets all currently trapped cards back to normal, offering a powerful but limited defensive mechanism. Like other rules, applying Gold triggers a complete reshuffle and redeal of hands.
 
 ## How to Play
 
 ### Basic Gameplay Flow
 
-Each hand begins with 13 cards dealt to both you and your opponent. Your cards are visible while your opponent's remain face-down, creating an information asymmetry that favors careful planning over reactive play.
+Each hand begins with 5 cards dealt to both you and your opponent. Your cards are visible while your opponent's remain face-down, creating an information asymmetry that favors careful planning over reactive play. Note that certain opponents can increase your hand size by their level number (e.g., level 2 opponents may give you 7 cards instead of 5).
+
+Opponent cards show visual hints about their type through subtle highlighting on their backs - trapped cards have a red tint, gold cards have a yellow tint, and wild cards have a gray tint, while normal cards have no highlighting.
 
 Select any combination of cards from either hand and apply one of the available trap rules. The rule affects all matching cards currently in play and will continue to affect matching cards in future hands within the same round.
 
@@ -37,7 +41,7 @@ The objective is simple: end a hand where you hold no trapped cards while your o
 
 Successful play requires balancing offensive and defensive strategies. Aggressive players might focus on trapping opponent cards early, but this approach risks creating traps that affect their own future hands. Conservative players might wait to apply traps until they can ensure their own safety, but this gives opponents more opportunities to establish favorable board states.
 
-The accumulating nature of trap rules means early decisions have cascading effects. Applying a Trap Suit rule on clubs in hand one will affect every subsequent hand where clubs appear. This creates a risk-reward dynamic where powerful early moves can backfire later in the round.
+The accumulating nature of trap rules means early decisions have cascading effects. Applying a Trap Suit rule on clubs in hand one will affect every subsequent hand where clubs appear, as cards are returned to the deck, reshuffled, and redealt after each rule application. This creates a risk-reward dynamic where powerful early moves can backfire later in the round.
 
 Gold cards represent the most crucial strategic decision point. Using Gold too early wastes its trap-clearing potential, but waiting too long might mean facing an impossible trap situation. Experienced players often hold Gold until they can simultaneously clear their own traps while leaving opponents vulnerable.
 
@@ -121,7 +125,7 @@ Cards use a 256x384 pixel resolution providing crisp detail while maintaining re
 
 Trapped cards receive subtle red tinting to clearly indicate their dangerous status without overwhelming the card artwork. Gold cards feature warm yellow tinting that conveys their protective and valuable nature. Wild cards use neutral gray tinting to emphasize their universal nature.
 
-Player and opponent decks are visually distinguished through colored card backs - blue for the player deck and red for the opponent deck. This color coding extends throughout the interface to maintain consistent visual associations.
+Player and opponent decks are visually distinguished through colored card backs - blue for the player deck and red for the opponent deck. Additionally, opponent card backs are highlighted with color tints matching their card type, providing strategic information even when cards are face-down. This color coding extends throughout the interface to maintain consistent visual associations.
 
 ### Animation and Interface Dynamics
 
